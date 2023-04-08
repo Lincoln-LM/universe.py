@@ -131,5 +131,6 @@ def _specialize_box(typ):
 
 
 # patch function
+# patching here is fine because our change should not affect regular jitclasses
 
 boxing_module._specialize_box = _specialize_box
