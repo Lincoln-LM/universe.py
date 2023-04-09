@@ -33,6 +33,9 @@ from numba.experimental.jitclass.base import (
 from numba.types import string
 
 
+INSTANCE_TYPE = numba.types.Opaque("instance type")
+
+
 def convert_to_numba(input_type):
     """Convert input to numba type"""
     try:
@@ -135,7 +138,12 @@ def apply_njit(
 
     # Manually force the first argument of instance methods to be the instance type (self argument)
     if instance_method:
-        signature._args = (class_type.instance_type,) + method.njit_args[0]._args
+        signature._args = (INSTANCE_TYPE,) + signature._args
+    # TODO: more robust replacement of instance types
+    signature._args = tuple(
+        arg if arg != INSTANCE_TYPE else class_type.instance_type
+        for arg in signature._args
+    )
 
     # Compile function with provided signature
     dispatcher.compile(signature)
