@@ -24,8 +24,18 @@ class MainWindow(pyglet.window.Window):
             anchor_x="right",
             anchor_y="top",
         )
+        self.target_label = pyglet.text.Label(
+            "",
+            font_size=12,
+            x=0,
+            y=self.height,
+            anchor_x="left",
+            anchor_y="top",
+        )
 
         self.universe_camera = Camera(self)
+        self.target = None
+        self.target_index = -1
 
         self.universe = Universe()
         self.gfx_objects: list[MassiveBody] = []
@@ -61,6 +71,11 @@ class MainWindow(pyglet.window.Window):
             with self.universe_camera:
                 self.batch.draw()
         self.fps_display.draw()
+        if self.target is not None:
+            self.target_label.text = f"Target: {self.target.name}"
+        else:
+            self.target_label.text = "Target: None"
+        self.target_label.draw()
         self.zoom_label.text = f"M/pixel: {self.zoom_scale:.00f}"
         self.zoom_label.draw()
 
@@ -69,6 +84,13 @@ class MainWindow(pyglet.window.Window):
     def on_key_release(self, symbol: int, _modifiers: int):
         if symbol == pyglet.window.key.ENTER:
             self.running = True
+        elif symbol == pyglet.window.key.TAB:
+            self.target_index += 1
+            if self.target_index >= len(self.gfx_objects):
+                self.target_index = -1
+                self.target = None
+            else:
+                self.target = self.gfx_objects[self.target_index]
 
     def on_mouse_scroll(self, _x, _y, _scroll_x, scroll_y):
         self.universe_camera.zoom += scroll_y

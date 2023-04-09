@@ -15,7 +15,6 @@ class Camera:
         scroll_speed=1,
         min_zoom=1,
         max_zoom=100,
-        target=None,
     ) -> None:
         assert (
             min_zoom <= max_zoom
@@ -24,7 +23,6 @@ class Camera:
         self.scroll_speed = scroll_speed
         self.max_zoom = max_zoom
         self.min_zoom = min_zoom
-        self.target = target
         self._zoom = max(min(1, self.max_zoom), self.min_zoom)
 
     @property
@@ -60,27 +58,31 @@ class Camera:
         )
         # Zoom out to scale
         view_matrix = view_matrix.scale((self.zoom_scale_inv, self.zoom_scale_inv, 1))
-        # Move to target
-        self._window.view = view_matrix.translate(
-            (
-                -self.target.position[0],
-                -self.target.position[1],
-                0,
+        if self._window.target is not None:
+            # Move to target
+            view_matrix = view_matrix.translate(
+                (
+                    -self._window.target.position[0],
+                    -self._window.target.position[1],
+                    0,
+                )
             )
-        )
+        self._window.view = view_matrix
 
     def end(self) -> None:
         """End camera instance"""
         center_ofs = self._window.width // 2, self._window.height // 2
 
-        # Move away from target
-        view_matrix = self._window.view.translate(
-            (
-                self.target.position[0],
-                self.target.position[1],
-                0,
+        view_matrix = self._window.view
+        if self._window.target is not None:
+            # Move away from target
+            view_matrix = view_matrix.translate(
+                (
+                    self._window.target.position[0],
+                    self._window.target.position[1],
+                    0,
+                )
             )
-        )
         # Zoom back in
         view_matrix = view_matrix.scale(
             (

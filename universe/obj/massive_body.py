@@ -25,8 +25,9 @@ class MassiveBody:
     id: np.int64
 
     # python attributes
-    __slots__ = ("shape",)
+    __slots__ = ("shape", "name")
     shape: pyglet.shapes.Circle
+    name: str
 
     @njit_spec(
         numba.types.none(
@@ -121,11 +122,12 @@ class MassiveBody:
         return trail
 
     @py_func
-    def py_init(self, window: MainWindow) -> None:
+    def py_init(self, window: MainWindow, name: str) -> None:
         """Initializer for interpreter-only attributes
 
         Args:
             window (MainWindow): Parent window
+            name (str): The name of the object
         """
         self.shape = pyglet.shapes.Circle(*self.position_tuple(), 1, batch=window.batch)
         self.update_gfx(window)
@@ -135,6 +137,7 @@ class MassiveBody:
         # 2^63 should be enough
         window.universe.current_id += 1
         window.gfx_objects.append(self)
+        self.name = name
 
     @py_func
     def position_tuple(self) -> tuple[np.float64, np.float64]:
