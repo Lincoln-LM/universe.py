@@ -12,10 +12,18 @@ class MainWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scale = 384400000 / (self.width * 0.5 * 0.75)
+        self.scale = 149597870700
 
         self.batch = pyglet.graphics.Batch()
         self.fps_display = pyglet.window.FPSDisplay(self)
+        self.zoom_label = pyglet.text.Label(
+            "",
+            font_size=12,
+            x=self.width,
+            y=self.height,
+            anchor_x="right",
+            anchor_y="top",
+        )
 
         self.universe_camera = Camera(self)
 
@@ -32,7 +40,12 @@ class MainWindow(pyglet.window.Window):
     @property
     def zoom_scale(self) -> int:
         """Zoom pixel scale"""
-        return self.scale / self.universe_camera.zoom
+        return self.universe_camera.zoom_scale
+
+    @property
+    def zoom_scale_inv(self) -> int:
+        """Inverse zoom pixel scale"""
+        return self.universe_camera.zoom_scale_inv
 
     # pylint: disable=arguments-differ
     def on_draw(self):
@@ -48,6 +61,8 @@ class MainWindow(pyglet.window.Window):
             with self.universe_camera:
                 self.batch.draw()
         self.fps_display.draw()
+        self.zoom_label.text = f"M/pixel: {self.zoom_scale:.00f}"
+        self.zoom_label.draw()
 
     # pylint: enable=arguments-differ
 
@@ -57,6 +72,9 @@ class MainWindow(pyglet.window.Window):
 
     def on_mouse_scroll(self, _x, _y, _scroll_x, scroll_y):
         self.universe_camera.zoom += scroll_y
+        scale = self.zoom_scale
+        for trail_object in self.trail_objects:
+            trail_object.radius = scale
 
     def update(self, delta_time: float) -> None:
         """Update all objects each tick
