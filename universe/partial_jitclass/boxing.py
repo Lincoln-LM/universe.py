@@ -20,7 +20,7 @@ def _specialize_box(typ):
     if typ in _cache_specialized_box:
         return _cache_specialized_box[typ]
     dct = {
-        "__slots__": (),
+        "__slots__": typ.class_type.class_slots,
         "_numba_type_": typ,
         "__doc__": typ.class_type.class_doc,
     }

@@ -14,7 +14,6 @@ from numba.experimental.jitclass.base import (
     OrderedDict,
     Sequence,
     _add_linking_libs,
-    _drop_ignored_attrs,
     _fix_up_private_attr,
     _validate_spec,
     as_numba_type,
@@ -164,6 +163,7 @@ class PartialClassType(numba.types.ClassType):
     ):
         self.class_name = class_def.__name__
         self.class_doc = class_def.__doc__
+        self.class_slots = class_def.__slots__
         self._ctor_template_class = ctor_template_cls
         self.jit_methods = jit_methods
         self.jit_props = jit_props
@@ -236,6 +236,33 @@ def ctor_impl(context, builder, sig, args):
     return imputils.impl_ret_new_ref(context, builder, inst_typ, ret)
 
 
+def _drop_ignored_attrs(dct):
+    # ignore anything defined by object
+    drop = {"__weakref__", "__module__", "__dict__"}
+
+    if "__annotations__" in dct:
+        drop.add("__annotations__")
+
+    for k, v in dct.items():
+        if isinstance(v, (pytypes.BuiltinFunctionType, pytypes.BuiltinMethodType)):
+            drop.add(k)
+        elif getattr(v, "__objclass__", None) is object:
+            drop.add(k)
+    # If a class defines __eq__ but not __hash__, __hash__ is implicitly set to
+    # None. This is a class member, and class members are not presently
+    # supported.
+    if "__hash__" in dct and dct["__hash__"] is None:
+        drop.add("__hash__")
+
+    if "__slots__" in dct:
+        drop.update(dct["__slots__"])
+        drop.add("__slots__")
+
+    for k in drop:
+        if k in dct:
+            del dct[k]
+
+
 def register_class_type(cls, spec, class_ctor, builder):
     """
     Internal function to create a partial jitclass.
@@ -256,7 +283,7 @@ def register_class_type(cls, spec, class_ctor, builder):
 
     # Extend spec with class annotations.
     for attr, py_type in pt.get_type_hints(cls).items():
-        if attr not in spec:
+        if attr not in spec and attr not in cls.__slots__:
             spec[attr] = convert_to_numba(py_type)
 
     _validate_spec(spec)
