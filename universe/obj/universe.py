@@ -11,7 +11,7 @@ from .massive_body import MassiveBody
 from ..partial_jitclass import partial_jitclass, njit_spec
 from ..partial_jitclass.base import convert_to_numba
 
-MAX_DELTA_TIME = 120
+MAX_DELTA_TIME = 60 * 5
 
 MASSIVE_BODY_INSTANCE_TYPE = convert_to_numba(MassiveBody)
 
@@ -27,7 +27,7 @@ class Universe:
     def __init__(self) -> None:
         self.massive_bodies = List.empty_list(MASSIVE_BODY_INSTANCE_TYPE)
         self.current_id = 0
-        self.time_scale = 60 * 60 * 24 * 5
+        self.time_scale = 60 * 60 * 24 * 365.25
 
     @njit_spec(numba.none(numba.float64))
     def update(self, delta_time: np.float64) -> None:
