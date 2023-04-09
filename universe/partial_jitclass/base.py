@@ -51,14 +51,18 @@ def convert_to_numba(input_type):
                     string
                     if input_type == np.str0
                     else (
-                        input_type.class_type.instance_type
-                        if hasattr(input_type, "class_type")
+                        numba.types.ListType(convert_to_numba(input_type.__args__[0]))
+                        if input_type.__new__ == list.__new__
                         else (
-                            # allow np.ndarray[np.x] -> numba.x[::1]
-                            # TODO: more robust conversion
-                            numba.from_dtype(input_type.__args__[0])[::1]
-                            if len(getattr(input_type, "__args__", ())) >= 1
-                            else numba.from_dtype(input_type)
+                            input_type.class_type.instance_type
+                            if hasattr(input_type, "class_type")
+                            else (
+                                # allow np.ndarray[np.x] -> numba.x[::1]
+                                # TODO: more robust conversion
+                                numba.from_dtype(input_type.__args__[0])[::1]
+                                if len(getattr(input_type, "__args__", ())) >= 1
+                                else numba.from_dtype(input_type)
+                            )
                         )
                     )
                 )
@@ -189,7 +193,7 @@ class PartialClassType(numba.types.ClassType):
     ):
         self.class_name = class_def.__name__
         self.class_doc = class_def.__doc__
-        self.class_slots = class_def.__slots__
+        self.class_slots = getattr(class_def, "__slots__", ())
         self._ctor_template_class = ctor_template_cls
         self.jit_methods = jit_methods
         self.jit_props = jit_props
@@ -309,7 +313,7 @@ def register_class_type(cls, spec, class_ctor, builder):
 
     # Extend spec with class annotations.
     for attr, py_type in pt.get_type_hints(cls).items():
-        if attr not in spec and attr not in cls.__slots__:
+        if attr not in spec and attr not in getattr(cls, "__slots__", ()):
             spec[attr] = convert_to_numba(py_type)
 
     _validate_spec(spec)
