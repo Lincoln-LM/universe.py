@@ -103,7 +103,7 @@ class MassiveBody:
         )
         self.shape.radius = max(
             self.radius,
-            5 * window.scale,
+            5 * window.zoom_scale,
         )
 
     @py_func
@@ -117,7 +117,7 @@ class MassiveBody:
             pyglet.shapes.Circle: New trail object
         """
         trail = pyglet.shapes.Circle(*self.shape.position, 1, batch=window.batch)
-        trail.radius = window.scale
+        trail.radius = window.zoom_scale
         return trail
 
     @py_func

@@ -29,6 +29,11 @@ class MainWindow(pyglet.window.Window):
         self.event(self.on_draw)
         pyglet.clock.schedule(self.update)
 
+    @property
+    def zoom_scale(self) -> int:
+        """Zoom pixel scale"""
+        return self.scale / self.universe_camera.zoom
+
     # pylint: disable=arguments-differ
     def on_draw(self):
         """Redraw all rendered objects"""
@@ -49,6 +54,9 @@ class MainWindow(pyglet.window.Window):
     def on_key_release(self, symbol: int, _modifiers: int):
         if symbol == pyglet.window.key.ENTER:
             self.running = True
+
+    def on_mouse_scroll(self, _x, _y, _scroll_x, scroll_y):
+        self.universe_camera.zoom += scroll_y
 
     def update(self, delta_time: float) -> None:
         """Update all objects each tick

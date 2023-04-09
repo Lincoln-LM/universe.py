@@ -10,7 +10,7 @@ class Camera:
         window: pyglet.window.Window,
         scroll_speed=1,
         min_zoom=1,
-        max_zoom=1,
+        max_zoom=10,
         target=None,
     ) -> None:
         assert (
@@ -21,7 +21,16 @@ class Camera:
         self.max_zoom = max_zoom
         self.min_zoom = min_zoom
         self.target = target
-        self.zoom = max(min(1, self.max_zoom), self.min_zoom) / self._window.scale
+        self._zoom = max(min(1, self.max_zoom), self.min_zoom)
+
+    @property
+    def zoom(self) -> int:
+        """Current zoom property"""
+        return self._zoom
+
+    @zoom.setter
+    def zoom(self, value: int) -> None:
+        self._zoom = max(min(value, self.max_zoom), self.min_zoom)
 
     def begin(self) -> None:
         """Begin camera instance"""
@@ -36,7 +45,9 @@ class Camera:
             )
         )
         # Zoom out to scale
-        view_matrix = view_matrix.scale((self.zoom, self.zoom, 1))
+        view_matrix = view_matrix.scale(
+            (self._zoom / self._window.scale, self._zoom / self._window.scale, 1)
+        )
         # Move to target
         self._window.view = view_matrix.translate(
             (
@@ -59,7 +70,13 @@ class Camera:
             )
         )
         # Zoom back in
-        view_matrix = view_matrix.scale((1 / self.zoom, 1 / self.zoom, 1))
+        view_matrix = view_matrix.scale(
+            (
+                1 / (self._zoom / self._window.scale),
+                1 / (self._zoom / self._window.scale),
+                1,
+            )
+        )
         # Move origin to bottom left
         self._window.view = view_matrix.translate(
             (

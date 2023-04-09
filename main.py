@@ -14,6 +14,6 @@ parent.py_init(window)
 child = MassiveBody(0.07346 * 10**24, 1738100, (384400000, 0), (0, -1022))
 child.py_init(window)
 
-window.universe_camera.target = parent
+window.universe_camera.target = child
 
 pyglet.app.run()
