@@ -49,7 +49,13 @@ def convert_to_numba(input_type):
                     else (
                         input_type.class_type.instance_type
                         if hasattr(input_type, "class_type")
-                        else numba.from_dtype(input_type)
+                        else (
+                            # allow np.ndarray[np.x] -> numba.x[::1]
+                            # TODO: more robust conversion
+                            numba.from_dtype(input_type.__args__[0])[::1]
+                            if len(getattr(input_type, "__args__", ())) >= 1
+                            else numba.from_dtype(input_type)
+                        )
                     )
                 )
             )
