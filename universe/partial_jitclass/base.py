@@ -5,6 +5,7 @@ from typing import Callable
 import numba
 import numpy as np
 from numba.core import config, errors
+from numba.core.dispatcher import Dispatcher
 
 # implicitly import everything needed from jitclass.base
 from numba.experimental.jitclass.base import (
@@ -104,35 +105,46 @@ def py_func(method):
 
 
 def apply_njit(
-    class_type, method: pytypes.FunctionType, instance_method: bool = False
+    class_type,
+    dispatcher: Dispatcher,
+    method: pytypes.FunctionType,
+    instance_method: bool = False,
 ) -> Callable:
     """Apply njit specification to method and return dispatched njit callable
 
     Args:
+        dispatcher (Dispatcher): Dispatcher for the function
         method (pytypes.FunctionType): Function with njit attribute
 
     Returns:
         Callable: Dispatched njit callable
     """
 
-    # If a method does not have njit_spec or py_func, default to inferred compilation
-    if not hasattr(method, "njit"):
-        return njit(method)
-
     # Do not compile py_func functions
-    if not method.njit:
+    if not getattr(method, "njit", True):
         return method
 
-    # Manually force the first argument of instance methods to be the instance type (self argument)
-    if len(method.njit_args) > 0 and instance_method:
-        method.njit_args[0]._args = (class_type.instance_type,) + method.njit_args[
-            0
-        ]._args
+    # If a method does not have njit_spec or py_func, default to inferred compilation
+    if not hasattr(method, "njit") or method.njit_args == ():
+        return dispatcher
 
-    return njit(
-        *(method.njit_args if hasattr(method, "njit_args") else ()),
-        **(method.njit_kwargs if hasattr(method, "njit_kwargs") else {}),
-    )(method)
+    # At this point, we know we have a njit function with a provided signature
+    # Signature is always the first njit argument
+    # TODO: Edgecase would be when signature_or_function is explicitly declared as a kwarg
+    signature = method.njit_args[0]
+
+    # Manually force the first argument of instance methods to be the instance type (self argument)
+    if instance_method:
+        signature._args = (class_type.instance_type,) + method.njit_args[0]._args
+
+    # Compile function with provided signature
+    dispatcher.compile(signature)
+
+    # Disable compilation to lock in the signature
+    # TODO: allow multiple signatures to be provided
+    dispatcher.disable_compile()
+
+    return dispatcher
 
 
 class PartialJitClassType(JitClassType):
@@ -360,12 +372,22 @@ def register_class_type(cls, spec, class_ctor, builder):
     builder(class_type, typingctx, targetctx).register()
     as_numba_type.register(cls, class_type.instance_type)
 
+    # Copy raw methods
+    original_methods = class_type.methods.copy()
+    # Create dispatchers for every method
+    class_type.jit_methods = {
+        k: njit(
+            *(getattr(v, "njit_args", ())[1:]),
+            **(getattr(v, "njit_kwargs", {})),
+        )(v)
+        for k, v in original_methods.items()
+    }
     # Compile after class is registered
     class_type.jit_methods = {
-        k: apply_njit(class_type, v, instance_method=True)
-        for k, v in class_type.methods.items()
+        k: apply_njit(class_type, v, original_methods[k], instance_method=True)
+        for k, v in class_type.jit_methods.items()
     }
-    # Set initialized after __init__ is compiled
+    # Set initializer after __init__ is compiled
     cls._set_init()
 
     return cls
