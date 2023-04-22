@@ -11,7 +11,7 @@ from .massive_body import MassiveBody
 from ..partial_jitclass import partial_jitclass, njit_spec
 from ..partial_jitclass.base import convert_to_numba
 
-MAX_DELTA_TIME = 60 * 5
+MAX_DELTA_TIME = 60 * 60
 
 MASSIVE_BODY_INSTANCE_TYPE = convert_to_numba(MassiveBody)
 
@@ -27,7 +27,7 @@ class Universe:
     def __init__(self) -> None:
         self.massive_bodies = List.empty_list(MASSIVE_BODY_INSTANCE_TYPE)
         self.current_id = 0
-        self.time_scale = 60 * 60 * 24 * 365.25
+        self.time_scale = 1
 
     @njit_spec(numba.none(numba.float64))
     def update(self, delta_time: np.float64) -> None:
@@ -42,12 +42,15 @@ class Universe:
             if step > 0:
                 step = MAX_DELTA_TIME
             for massive_body in self.massive_bodies:
-                for other_massive_body in self.massive_bodies:
-                    if massive_body.id == other_massive_body.id:
-                        continue
-                    massive_body.apply_gravity(other_massive_body)
+                massive_body.update_half_step(step)
+            total_bodies = len(self.massive_bodies)
+            for i in range(total_bodies):
+                for j in range(i + 1, total_bodies):
+                    self.massive_bodies[i].apply_mirrored_gravity(
+                        self.massive_bodies[j]
+                    )
             for massive_body in self.massive_bodies:
-                massive_body.update_step(step)
+                massive_body.update_half_step(step)
 
     @njit_spec(numba.none(MASSIVE_BODY_INSTANCE_TYPE))
     def add_massive_body(self, massive_body: MassiveBody) -> None:

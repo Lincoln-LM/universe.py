@@ -10,6 +10,7 @@ from ..partial_jitclass import partial_jitclass, njit_spec, py_func, INSTANCE_TY
 
 if typing.TYPE_CHECKING:
     from ..gfx.main_window import MainWindow
+    from .universe import Universe
 
 
 @partial_jitclass
@@ -66,14 +67,44 @@ class MassiveBody:
         # reset acceleration for next step
         self.acceleration[:] = 0
 
+    @njit_spec(numba.none(numba.float64))
+    def update_half_step(self, delta_time: np.float64) -> None:
+        """Update object according to half of a fraction of the progression of time
+
+        Args:
+            delta_time (np.float64): The full amount of time to process this step
+        """
+        # acceleration is always 0 on the first half step
+        if self.acceleration[0] != 0.0 or self.acceleration[1] != 0.0:
+            self.velocity += self.acceleration * delta_time  # full timestep
+        self.position += self.velocity * delta_time / 2  # half timestep
+
+        # reset acceleration for next step
+        self.acceleration[:] = 0
+
     @njit_spec(numba.none(INSTANCE_TYPE))
     def apply_gravity(self, other: MassiveBody) -> None:
-        """Apply gravitational acceleration
+        """Apply gravitational acceleration to self
 
         Args:
             other (MassiveBody): The body pulling on self
         """
         self.acceleration += self.gravitational_acceleration(other)
+
+    @njit_spec(numba.none(INSTANCE_TYPE))
+    def apply_mirrored_gravity(self, other: MassiveBody) -> None:
+        """Apply gravitational acceleration to both objects
+
+        Args:
+            other (MassiveBody): The body pulling on self
+        """
+        distance_vec = other.position - self.position
+        distance_cubed = np.dot(distance_vec, distance_vec) ** (3 / 2)
+
+        force = G / distance_cubed * distance_vec
+
+        self.acceleration += other.mass * force
+        other.acceleration -= self.mass * force
 
     @njit_spec(numba.float64[::1](INSTANCE_TYPE))
     def gravitational_acceleration(self, other: MassiveBody) -> np.ndarray[np.float64]:
@@ -122,22 +153,31 @@ class MassiveBody:
         return trail
 
     @py_func
-    def py_init(self, window: MainWindow, name: str) -> None:
+    def py_init(
+        self,
+        universe: Universe,
+        window: MainWindow = None,
+        name: str = "Unnamed Massive Body",
+    ) -> None:
         """Initializer for interpreter-only attributes
 
         Args:
+            universe (Universe): Containing universe
             window (MainWindow): Parent window
             name (str): The name of the object
         """
-        self.shape = pyglet.shapes.Circle(*self.position_tuple(), 1, batch=window.batch)
-        self.update_gfx(window)
-        window.universe.add_massive_body(self)
-        self.id = window.universe.current_id
+        universe.add_massive_body(self)
+        self.id = universe.current_id
         # increment to ensure each object gets a unique id
         # 2^63 should be enough
-        window.universe.current_id += 1
-        window.gfx_objects.append(self)
+        universe.current_id += 1
         self.name = name
+        if window is not None:
+            self.shape = pyglet.shapes.Circle(
+                *self.position_tuple(), 1, batch=window.batch
+            )
+            self.update_gfx(window)
+            window.gfx_objects.append(self)
 
     @py_func
     def position_tuple(self) -> tuple[np.float64, np.float64]:

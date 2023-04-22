@@ -1,6 +1,8 @@
 """Main GUI window for universe.py"""
 
 import pyglet
+
+from .settings_window import SettingsWindowThread
 from .camera import Camera
 from ..obj.massive_body import MassiveBody
 from ..obj.universe import Universe
@@ -12,7 +14,7 @@ class MainWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scale = 149597870700
+        self.scale = 149597870700 * 2**15
 
         self.batch = pyglet.graphics.Batch()
         self.fps_display = pyglet.window.FPSDisplay(self)
@@ -47,6 +49,13 @@ class MainWindow(pyglet.window.Window):
         self.event(self.on_draw)
         pyglet.clock.schedule(self.update)
 
+        self.open_settings_window()
+
+    def open_settings_window(self) -> None:
+        """Open settings window in a new thread"""
+        self.settings_window_thread = SettingsWindowThread(self)
+        self.settings_window_thread.start()
+
     @property
     def zoom_scale(self) -> int:
         """Zoom pixel scale"""
@@ -66,10 +75,13 @@ class MainWindow(pyglet.window.Window):
                 self.trail_objects.append(body.draw_trail(self))
                 # discard any trail objects created before limit
                 # automatically unrenders/handles deletion
-                self.trail_objects = self.trail_objects[-self.max_trail :]
+                self.trail_objects = self.trail_objects[-self.max_trail :]  # noqa: E203
                 body.update_gfx(self)
             with self.universe_camera:
                 self.batch.draw()
+        # thread-safe
+        if self.universe_camera.new_zoom != self.universe_camera.zoom:
+            self.universe_camera.zoom = self.universe_camera.new_zoom
         self.fps_display.draw()
         if self.target is not None:
             self.target_label.text = f"Target: {self.target.name}"
@@ -94,6 +106,13 @@ class MainWindow(pyglet.window.Window):
 
     def on_mouse_scroll(self, _x, _y, _scroll_x, scroll_y):
         self.universe_camera.zoom += scroll_y
+        self.settings_window_thread.gui.zoom_slider.setValue(
+            self.universe_camera.zoom * 10
+        )
+        self.update_trail_size()
+
+    def update_trail_size(self):
+        """Update the size of every trail object"""
         scale = self.zoom_scale
         for trail_object in self.trail_objects:
             trail_object.radius = scale

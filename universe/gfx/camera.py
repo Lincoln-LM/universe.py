@@ -1,6 +1,8 @@
 """A 2D camera for the universe scene"""
+
 from __future__ import annotations
 from typing import TYPE_CHECKING
+from math import log2
 
 if TYPE_CHECKING:
     from .main_window import MainWindow
@@ -12,18 +14,11 @@ class Camera:
     def __init__(
         self,
         window: MainWindow,
-        scroll_speed=1,
-        min_zoom=1,
-        max_zoom=100,
     ) -> None:
-        assert (
-            min_zoom <= max_zoom
-        ), "Minimum zoom must not be greater than maximum zoom"
         self._window = window
-        self.scroll_speed = scroll_speed
-        self.max_zoom = max_zoom
-        self.min_zoom = min_zoom
-        self._zoom = max(min(1, self.max_zoom), self.min_zoom)
+        self.max_zoom = log2(self._window.scale)
+        self._zoom = 1
+        self.new_zoom = self._zoom
 
     @property
     def zoom(self) -> int:
@@ -32,7 +27,7 @@ class Camera:
 
     @zoom.setter
     def zoom(self, value: int) -> None:
-        self._zoom = max(min(value, self.max_zoom), self.min_zoom)
+        self._zoom = max(min(value, self.max_zoom), 1)
 
     @property
     def zoom_scale(self) -> int:
