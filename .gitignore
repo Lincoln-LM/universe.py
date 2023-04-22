@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# saved screenshots and videos
+video.mp4
+screenshot.png

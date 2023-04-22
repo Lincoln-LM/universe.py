@@ -1,6 +1,8 @@
 """Main GUI window for universe.py"""
 
 import pyglet
+import numpy as np
+from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 
 from .settings_window import SettingsWindowThread
 from .camera import Camera
@@ -34,6 +36,14 @@ class MainWindow(pyglet.window.Window):
             anchor_x="left",
             anchor_y="top",
         )
+        self.recording_label = pyglet.text.Label(
+            "Recording",
+            font_size=12,
+            x=0,
+            y=self.height - 24,
+            anchor_x="left",
+            anchor_y="top",
+        )
 
         self.universe_camera = Camera(self)
         self.target = None
@@ -45,6 +55,8 @@ class MainWindow(pyglet.window.Window):
         self.max_trail = 1000
 
         self.running = False
+        self.recording = False
+        self.recorded_frames = []
 
         self.event(self.on_draw)
         pyglet.clock.schedule(self.update)
@@ -82,7 +94,6 @@ class MainWindow(pyglet.window.Window):
         # thread-safe
         if self.universe_camera.new_zoom != self.universe_camera.zoom:
             self.universe_camera.zoom = self.universe_camera.new_zoom
-        self.fps_display.draw()
         if self.target is not None:
             self.target_label.text = f"Target: {self.target.name}"
         else:
@@ -90,19 +101,43 @@ class MainWindow(pyglet.window.Window):
         self.target_label.draw()
         self.zoom_label.text = f"M/pixel: {self.zoom_scale:.00f}"
         self.zoom_label.draw()
+        if self.recording:
+            # buffer = BytesIO()
+
+            self.recorded_frames.append(
+                (
+                    1 / self.fps_display._mean(self.fps_display._delta_times),
+                    pyglet.image.get_buffer_manager()
+                    .get_color_buffer()
+                    .get_image_data()
+                    .get_data(),
+                )
+            )
+            self.recording_label.draw()
+        self.fps_display.draw()
 
     # pylint: enable=arguments-differ
 
     def on_key_release(self, symbol: int, _modifiers: int):
         if symbol == pyglet.window.key.ENTER:
+            # pause/unpause
             self.running = True
         elif symbol == pyglet.window.key.TAB:
+            # switch target
             self.target_index += 1
             if self.target_index >= len(self.gfx_objects):
                 self.target_index = -1
                 self.target = None
             else:
                 self.target = self.gfx_objects[self.target_index]
+        elif symbol == pyglet.window.key.S:
+            # screenshot
+            pyglet.image.get_buffer_manager().get_color_buffer().save("screenshot.png")
+        elif symbol == pyglet.window.key.V:
+            # start/stop recording
+            if self.recording:
+                self.save_recording()
+            self.recording = not self.recording
 
     def on_mouse_scroll(self, _x, _y, _scroll_x, scroll_y):
         self.universe_camera.zoom += scroll_y
@@ -125,3 +160,16 @@ class MainWindow(pyglet.window.Window):
         """
         if self.running:
             self.universe.update(delta_time)
+
+    def save_recording(self) -> None:
+        """Save recording of the window"""
+        sequence = []
+        fps_sum = 0
+        for fps, frame in self.recorded_frames:
+            fps_sum += fps
+            sequence.append(
+                np.flipud(np.reshape(np.asarray(frame, np.uint8), (500, 500, 4)))
+            )
+        clip = ImageSequenceClip(sequence, fps=fps_sum / len(self.recorded_frames))
+        clip.write_videofile("video.mp4")
+        self.recorded_frames = []
