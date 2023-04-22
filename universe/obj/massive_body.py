@@ -67,15 +67,15 @@ class MassiveBody:
         # reset acceleration for next step
         self.acceleration[:] = 0
 
-    @njit_spec(numba.none(numba.float64))
-    def update_half_step(self, delta_time: np.float64) -> None:
+    @njit_spec(numba.none(numba.float64, numba.bool_))
+    def update_half_step(self, delta_time: np.float64, is_first_step: np.bool8) -> None:
         """Update object according to half of a fraction of the progression of time
 
         Args:
             delta_time (np.float64): The full amount of time to process this step
+            is_first_step (np.bool8): Whether or not the half step is the first one
         """
-        # acceleration is always 0 on the first half step
-        if self.acceleration[0] != 0.0 or self.acceleration[1] != 0.0:
+        if is_first_step:
             self.velocity += self.acceleration * delta_time  # full timestep
         self.position += self.velocity * delta_time / 2  # half timestep
 

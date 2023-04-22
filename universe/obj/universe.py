@@ -42,7 +42,7 @@ class Universe:
             if step > 0:
                 step = MAX_DELTA_TIME
             for massive_body in self.massive_bodies:
-                massive_body.update_half_step(step)
+                massive_body.update_half_step(step, True)
             total_bodies = len(self.massive_bodies)
             for i in range(total_bodies):
                 for j in range(i + 1, total_bodies):
@@ -50,7 +50,7 @@ class Universe:
                         self.massive_bodies[j]
                     )
             for massive_body in self.massive_bodies:
-                massive_body.update_half_step(step)
+                massive_body.update_half_step(step, False)
 
     @njit_spec(numba.none(MASSIVE_BODY_INSTANCE_TYPE))
     def add_massive_body(self, massive_body: MassiveBody) -> None:
