@@ -75,7 +75,7 @@ class MassiveBody:
             delta_time (np.float64): The full amount of time to process this step
             is_first_step (np.bool8): Whether or not the half step is the first one
         """
-        if is_first_step:
+        if not is_first_step:
             self.velocity += self.acceleration * delta_time  # full timestep
         self.position += self.velocity * delta_time / 2  # half timestep
 
